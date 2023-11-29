@@ -22,19 +22,24 @@ class Trellis:
         self.trellis = [[False for j in range(self.cols - i % 2)] for i in range(self.rows)]
         self.ball_position = None
 
-    def __str__(self):
-        str = ""
-        for i in range(len(self.trellis)):
-            if i % 2 == 1: str += "  " 
-            for j in range(len(self.trellis[i])):
-                str += 'o' if self.trellis[i][j] else 'x'
-                str += "   "
-            str += '\n'
-        str = str[:-1]
-        return str
+    def rowToString(self, i):
+        """Returns string repr'n of row 'i' in the trellis."""
+        row = self.trellis[i]
+        res = '   '.join([stateToString(row[j]) for j in range(len(row))])
+        if i % 2 == 1:
+            res = '  ' + res + '  '
+        return res
 
+    def __str__(self):
+        """String repr'n of the trellis in its current state"""
+        return '\n'.join([self.rowToString(i) for i in range(self.rows)])
+    
+    def __repr__(self):
+        """A repr'n of the configuration C x S."""
+        return f'<Trellis C={self.trellis}, S={self.ball_position}>'
+    
     def isStateRight(self):
-        """Returns true iff ball goes right"""
+        """Returns true iff ball goes right from current ball_position"""
         row, col = self.ball_position
         return self.trellis[row][col]
 
@@ -122,6 +127,8 @@ class Trellis:
 """
 HELPER FUNCTIONS 
  - charToSlot : Converts 'a' to 0, 'b' to 1, etc.
+ - slotToChar : Inverse of charToSlot
+ - stateToString : Returns string repr'n of states
 """
 def charToSlot(char):
     """
@@ -140,6 +147,9 @@ def slotToChar(int):
     if int not in range(ord('z') - ord('a') + 1):
         raise ValueError(f'slotToChar: int {int} not between 0 and 25')
     return chr(int + ord('a'))
+
+def stateToString(is_right):
+    return 'o' if is_right else 'x'
 
 if __name__ == "__main__":
     """Run this only if 'trellis.py' is run directly, not as an import."""
