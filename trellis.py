@@ -112,10 +112,10 @@ class Trellis:
         # Add the ball, and iterate update
         self.ball_position = (0,slot)
         print(self)
-        print('---' * self.cols)
+        print('-' * len(self.rowToString(0)))
         while self.update():
             print(self)
-            print('---' * self.cols)
+            print('-' * len(self.rowToString(0)))
 
     def drop_balls(self, slots):
         """Iterates the 'drop_ball' action."""
@@ -148,8 +148,8 @@ def slotToChar(int):
         raise ValueError(f'slotToChar: int {int} not between 0 and 25')
     return chr(int + ord('a'))
 
-def stateToString(is_right):
-    return 'o' if is_right else 'x'
+def stateToString(stateIsRight):
+    return 'o' if stateIsRight else 'x'
 
 if __name__ == "__main__":
     """Run this only if 'trellis.py' is run directly, not as an import."""
