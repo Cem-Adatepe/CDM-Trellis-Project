@@ -5,18 +5,19 @@
 @author Cem Adatepe, Joseph Chan
 """
 
+import sys
+import itertools
 from blessed import Terminal
 import argparse
-import sys
 
 """
 GLOBAL VARIABLES
 """
-verbose = True
+verbose = False
 
 """Trellis state representation: use bools"""
-LEFT = True
-RIGHT = False
+LEFT,  LEFT_CHAR  = True,  'o'
+RIGHT, RIGHT_CHAR = False, 'x'
 
 class Trellis:
     """
@@ -48,6 +49,7 @@ class Trellis:
         return f'<Trellis C={self.trellis}, S={self.ball_position}>'
 
     def isValidAction(self, slot):
+        """Checks if slot (int or single char) is in range."""
         if isinstance(slot, (str)):
             slot = charToSlot(slot)
         return slot in range(self.cols)
@@ -174,6 +176,7 @@ class Trellis:
         also guaranteed that atomic actions on any trellis generate a group!).
         """
         self.reset()
+        self.ball_position = None
         self.drop_balls(element)
         count = 1
         while not self.isIdentity():
@@ -206,14 +209,56 @@ def slotToChar(int):
     return chr(int + ord('a'))
 
 def stateToString(stateIsLeft):
-    return 'o' if stateIsLeft else 'x'
+    return LEFT_CHAR if stateIsLeft else RIGHT_CHAR
 
+"""
+STRING LIBRARY
+Functions for generating strings of actions.
+"""
+def charsToN(chars, n=8):
+    """Returns the set {chars}^n of strings over {chars}."""
+    return list(map(''.join, itertools.product(chars, repeat=n)))
 
+def upToCount(actions):
+    """
+    Since atomic actions commute, filter `actions` to remove identical elements
+    (by commuting atomic actions).
+    """
+    return list(set(map(lambda str: ''.join(sorted(str)), actions)))
+
+def allActions(chars, n=8):
+    """
+    Generates all actions over the alphabet {chars}.
+    If n is given as the period of any atomic element in chars, we return
+      n^|{chars}| many elements in a list.
+    """
+    index_tuples = itertools.product(range(n), repeat=len(chars))
+    actions = [ 
+        ''.join([
+            ''.join(tupl[j] * chars[j] for j in range(len(chars)))
+        ]) for tupl in index_tuples
+    ]
+    return actions
+
+"""
+Run this section only if 'trellis.py' is run directly, not as an import.
+"""
 if __name__ == "__main__":
-    """Run this only if 'trellis.py' is run directly, not as an import."""
     if sys.flags.interactive:
         print(f"Verbose mode: {verbose}")
-        print(f"Set bool 'verbose' to toggle verbose mode.")
-
+        print(f"Set bool 'verbose' to toggle verbose mode.\n")
+        print("trellis =")
     trellis = Trellis()
     print(trellis)
+
+    """Quick script for trellis.py to brute-force periods"""
+    if not sys.flags.interactive:
+        actions = {
+            action: trellis.getPeriod(action) 
+            for action in allActions(['a','b','c'], n=8)
+        }
+
+        for p in range(1, 8+1):
+            print(f"Period {p}:")
+            print([action for action, period in actions.items() if period == p])
+            print()
