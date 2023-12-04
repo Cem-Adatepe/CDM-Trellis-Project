@@ -51,7 +51,7 @@ class Trellis:
         return f'<Trellis C={self.trellis}, S={self.ball_position}>'
 
     def isValidAction(self, slot):
-        """Checks if slot (int or single char) is in range."""
+        """Checks if slot (single char, or int) is in range."""
         if isinstance(slot, (str)):
             slot = charToSlot(slot)
         return slot in range(self.cols)
@@ -136,22 +136,15 @@ class Trellis:
           an integer, 0 <= slot < self.cols; or
           a letter, such that 0 <= charToSlot(slot) < self.cols.
         """
-        if self.ball_position != None:
-            raise AssertionError("drop_ball: There's already a ball")
-
+        assert self.ball_position == None, "drop_ball: There's already a ball"
         if isinstance(slot, (str)):
             slot = charToSlot(slot)
-
         if not self.isValidAction(slot):
             raise ValueError(f"drop_ball: slot '{slotToChar(slot)}' not "
                              f"between 'a' and '{slotToChar(self.cols - 1)}'")
 
         # Add the ball, and iterate update
         self.ball_position = (0,slot)
-        if verbose:
-            print(self)
-            print('-' * len(self.rowToString(0)))
-
         while self.update():
             if verbose:
                 print(self)
@@ -161,6 +154,9 @@ class Trellis:
         """Iterates the 'drop_ball' action."""
         if slots != "" and not slots.isalpha():
             raise ValueError(f'drop_balls: slots must be a string of letters')
+        if verbose:
+            print(self)
+            print('-' * len(self.rowToString(0)))
         for slot in slots:
             self.drop_ball(slot)
 
