@@ -207,7 +207,7 @@ class Trellis:
         self.ball_position = None
         self.drop_balls(start)
         initial_config = copy.deepcopy(self.trellis)
-        
+
         self.drop_balls(element)
         orbit, count = [reduce(start + element, ['a','b','c'])], 1
         while self.trellis != initial_config:
@@ -280,7 +280,7 @@ def reduceStep(action, chars):
     """
     Given an action over {chars}, tries to apply one of the reduction rules.
 
-    Version 1: only works for trellises of width=2.
+    Version 1: only works for trellises (height=1, width=2).
     """
     # print(f"reduceStep('{action}', {chars})")
 
@@ -316,7 +316,7 @@ def reduce(action, chars):
     """
     Iterates the 'reduceStep' action until we've hit a fixed point.
     
-    Version 1: only works for trellises of width=2.
+    Version 1: only works for trellises of (height=1, width=2).
     """
     while True:
         new_action = reduceStep(action, chars)
@@ -327,7 +327,7 @@ def reduce(action, chars):
 
 def allReducedActions(chars=None, n=8):
     """
-    Version 1: only works for vanilla trellises (height=1, width=2)
+    Version 1: only works for vanilla trellises (height=1, width=2).
     """
     chars = ['a','b','c']
     return list(set(reduce(action, chars) for action in allActions(chars, n)))
