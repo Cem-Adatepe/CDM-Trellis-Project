@@ -304,13 +304,11 @@ def reduceStep(action, chars):
 
     for rewrite in rewrites:
         if all(rewrite[char] <= action[char] for char in chars):
-            # print(f"reducing by : {rewrite}")
             res = ''.join(sorted((action - rewrite).elements()))
-            # print(f"to '{res}'")
+            # print(f"Reducing by rule: {list(rewrite.items())} to '{res}'.")
             return res
-    res = ''.join(sorted(action.elements()))
-    # print(f"No reduction!")
-    return res
+    # print(f"No more reductions!\n")
+    return ''.join(sorted(action.elements()))
 
 def reduce(action, chars):
     """
