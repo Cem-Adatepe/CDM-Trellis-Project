@@ -6,7 +6,9 @@
 """
 
 import sys
+import copy
 import itertools
+from collections import Counter
 from blessed import Terminal
 import argparse
 
@@ -15,7 +17,7 @@ GLOBAL VARIABLES
 """
 verbose = False
 
-"""Trellis state representation: use bools"""
+"""Trellis state & string representation: use bools"""
 LEFT,  LEFT_CHAR  = True,  'o'
 RIGHT, RIGHT_CHAR = False, 'x'
 
@@ -179,10 +181,40 @@ class Trellis:
         self.ball_position = None
         self.drop_balls(element)
         count = 1
+        orbit = []
+        if verbose:
+            orbit.append(reduce(element, ['a','b','c']))
         while not self.isIdentity():
             self.drop_balls(element)
             count += 1
+            if verbose:
+                orbit.append(reduce(element * count, ['a','b','c']))
+        if verbose:
+            print(orbit)
         return count
+    
+    def getOrbit(self, element: str, start: str=''):
+        """
+        Returns the orbit of an element, represented as a list of (reduced) 
+        elements. Optionally, begins at a starting element indicated by start.
+
+        Version 1: only works with trellises of width=2.
+        """
+        assert all(map(self.isValidAction, list(element))), "getOrbit: invalid element"
+        assert all(map(self.isValidAction, list(element))), "getOrbit: invalid start"
+
+        self.reset()
+        self.ball_position = None
+        self.drop_balls(start)
+        initial_config = copy.deepcopy(self.trellis)
+        
+        self.drop_balls(element)
+        orbit, count = [reduce(start + element, ['a','b','c'])], 1
+        while self.trellis != initial_config:
+            self.drop_balls(element)
+            count += 1
+            orbit.append(reduce(start + element * count, ['a','b','c']))
+        return orbit
 
 """
 HELPER FUNCTIONS 
@@ -192,8 +224,10 @@ HELPER FUNCTIONS
 """
 def charToSlot(char):
     """
-    char is a single (upper- or lower-case) char.
-    It returns its corresponding slot: mapping
+    Expects a string 'char' as input: char is a single (upper- or lower-case) 
+    char.
+    
+    It returns its corresponding slot number: mapping
       'A' == 'a' == 0
       'B' == 'b' == 1, etc.
     """
@@ -240,6 +274,64 @@ def allActions(chars, n=8):
     ]
     return actions
 
+# def getRewrites(chars, period=8):
+
+def reduceStep(action, chars):
+    """
+    Given an action over {chars}, tries to apply one of the reduction rules.
+
+    Version 1: only works for trellises of width=2.
+    """
+    # print(f"reduceStep('{action}', {chars})")
+
+    action, chars = action.lower(), list(map(str.lower, chars))
+    if set(list(action)) - set(chars):
+        raise ValueError(f"Action '{action}' contains chars not in '{chars}'")
+    
+    # Re-write as a Counter object:
+    action = Counter(action)
+
+    # Re-write rules
+    rewrites = [
+        Counter(a= 2, b=2,  c=2),
+        Counter(a= 4, b=4,  c=-4),
+        Counter(a= 4, b=-4, c=4),
+        Counter(a=-4, b=4,  c=4),
+        Counter(a= 6, b=-2, c=-2),
+        Counter(a=-2, b=6,  c=-2),
+        Counter(a=-2, b=-2, c=6)
+    ]
+
+    for rewrite in rewrites:
+        if all(rewrite[char] <= action[char] for char in chars):
+            # print(f"reducing by : {rewrite}")
+            res = ''.join(sorted((action - rewrite).elements()))
+            # print(f"to '{res}'")
+            return res
+    res = ''.join(sorted(action.elements()))
+    # print(f"No reduction!")
+    return res
+
+def reduce(action, chars):
+    """
+    Iterates the 'reduceStep' action until we've hit a fixed point.
+    
+    Version 1: only works for trellises of width=2.
+    """
+    while True:
+        new_action = reduceStep(action, chars)
+        if Counter(new_action) == Counter(action):
+            return new_action
+        else:
+            action = new_action
+
+def allReducedActions(chars=None, n=8):
+    """
+    Version 1: only works for vanilla trellises (height=1, width=2)
+    """
+    chars = ['a','b','c']
+    return list(set(reduce(action, chars) for action in allActions(chars, n)))
+
 """
 Run this section only if 'trellis.py' is run directly, not as an import.
 """
@@ -250,13 +342,20 @@ if __name__ == "__main__":
         print("trellis =")
     trellis = Trellis()
     print(trellis)
+    print()
 
     """Quick script for trellis.py to brute-force periods"""
     if not sys.flags.interactive:
+        chars = ['a','b','c']
         actions = {
-            action: trellis.getPeriod(action) 
-            for action in allActions(['a','b','c'], n=8)
+            action: trellis.getPeriod(action) for action in
+            map(lambda elt: reduce(elt, chars), allActions(chars, n=8))
         }
+        irreducibles = list(actions.keys())
+        print(f"Number of irreducible group elements: {len(irreducibles)}")
+        print()
+        print(irreducibles)
+        print()
 
         for p in range(1, 8+1):
             print(f"Period {p}:")
