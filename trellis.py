@@ -274,6 +274,7 @@ def getRewrites(chars, period=8):
     """
     Generates a list of rewrites for a given set of {char}'s and period.
     WARNING : naively, this is EXPONENTIAL in |{char}| !
+    WARNING : as-is, doesn't work for cases as simple as {a,b,c,d} and period=8!
 
     All rewrite rules are generated ultimately from identity elements, which (we
     conjecture, and can computationally verify for small cases) are of the form
@@ -348,17 +349,17 @@ def reduce(action, rewrites, chars=['a','b','c']):
         for rewrite in rewrites:
             if all(action[char] + rewrite[char] >= 0 for char in chars):
                 action = action + rewrite
-                print(f"Reducing by rule {list(rewrite.items())} to '{counterToStr(action)}'.")
+                # print(f"Reducing by rule {list(rewrite.items())} to '{counterToStr(action)}'.")
         return action
 
     # Main function body
-    print(f"reduce('{action}')")
+    # print(f"reduce('{action}')")
     action = Counter(action)
 
     while True:
         new_action = reduceStep(action)
         if new_action == action:
-            print("No more reductions!\n")
+            # print("No more reductions!\n")
             break
         else:
             action = new_action
@@ -383,29 +384,30 @@ if __name__ == "__main__":
         print(f"Verbose mode: {verbose}")
         print(f"Set bool 'verbose' to toggle verbose mode.\n")
         print("trellis =")
-    trellis = Trellis()
-    print(trellis)
-    print()
+        trellis = Trellis()
+        print(trellis)
+        print()
 
-    """Quick script for trellis.py to brute-force periods"""
-    if not sys.flags.interactive:
-        trellis = Trellis(h=1, w=1)
-        chars = ['a','b']
-        rewrites = getRewrites(chars, period=8)
+    else:
+        """Quick script for trellis.py to brute-force periods"""
+        trellis = Trellis(h=2, w=2)
+        print(trellis)
+        chars = ['a','b','c']
+        rewrites = getRewrites(chars, period=32)
         actions = {
             action: trellis.getPeriod(action) 
             for action in map(
                 lambda elt: reduce(elt, rewrites, chars),
-                allActions(chars, n=8)
+                allActions(chars, n=32)
             )
         }
         irreducibles = list(actions.keys())
         print(f"Number of irreducible group elements: {len(irreducibles)}")
         print()
-        print(irreducibles)
+        print(f"Periods: { set(actions.values()) }")
         print()
 
-        for p in range(1, 8+1):
-            print(f"Period {p}:")
-            print([action for action, period in actions.items() if period == p])
-            print()
+        # for p in range(1, 8+1):
+        #     print(f"Period {p}:")
+        #     print([action for action, period in actions.items() if period == p])
+        #     print()
