@@ -7,7 +7,7 @@
 
 import sys
 import copy
-import itertools
+from itertools import product
 from collections import Counter
 from blessed import Terminal
 import argparse
@@ -247,7 +247,7 @@ Functions for generating strings of actions.
 """
 def charsToN(chars, n=8):
     """Returns the set {chars}^n of strings over {chars}."""
-    return list(map(''.join, itertools.product(chars, repeat=n)))
+    return list(map(''.join, product(chars, repeat=n)))
 
 def upToCount(actions):
     """
@@ -262,7 +262,7 @@ def allActions(chars, n=8):
     If n is given as the period of any atomic element in chars, we return
       n^|{chars}| many elements in a list.
     """
-    index_tuples = itertools.product(range(n), repeat=len(chars))
+    index_tuples = product(range(n), repeat=len(chars))
     actions = [ 
         ''.join([
             ''.join(tupl[j] * chars[j] for j in range(len(chars)))
@@ -270,61 +270,110 @@ def allActions(chars, n=8):
     ]
     return actions
 
-# def getRewrites(chars, period=8):
-
-def reduceStep(action, chars):
+def getRewrites(chars, period=8):
     """
-    Given an action over {chars}, tries to apply one of the reduction rules.
+    Generates a list of rewrites for a given set of {char}'s and period.
+    WARNING : naively, this is EXPONENTIAL in |{char}| !
 
-    Version 1: only works for trellises (height=1, width=2).
+    All rewrite rules are generated ultimately from identity elements, which (we
+    conjecture, and can computationally verify for small cases) are of the form
+    (abc)^2k. Essentially, we are trying to 'mod' out by the identity elements.
+
+    The key insight is that each identity can be turned into a rewrite rule by 
+    turning each number into its inverse, e.g. when the period is 8, then
+    
+        a^{-2} == a^6     and more generally    r^{-k} == r^{n-k}
+
+    Computationally, each bitstring of length |{char}| corresponds to a rewrite 
+    rule ('negate' the elements as above when the bit is 1, and leave it when
+    the bit is 0). For example, the bitstring '100' corresponds to
+
+            a^{-6} b^2 c^2              (since 2 ~= -6 mod 8)
+        ~=  Counter(a=-6, b=2, c=2)     (our representation)
+
+    Also, we want our rewrites to be reducing, so we can simply filter our list.
+    We want to exclude 'reversible' rewrites that don't change weight too.
     """
-    # print(f"reduceStep('{action}', {chars})")
+    def reducingTuple(rewriteTuple: tuple):
+        """
+        Helper: 'flips' the tuple to ensure that the weight doesn't increase.
+        For a given rewrite tuple (k,l,m), (-k,-l,-m) is also the identity,
+        so we just search for 2k <= period / 2 and choose the tuple that
+        decreases weight.
 
+        If both tuples don't change weight (i.e. their sum is 0), we pick the
+        first one and discard the second. This way we EXCLUDE reversible
+        rewrites.
+        """
+        weight = sum(rewriteTuple)
+        if weight < 0:
+            return rewriteTuple
+        elif weight > 0:
+            return tuple(-elt for elt in rewriteTuple)
+        else:
+            if rewriteTuple in reversibleTuples:
+                return (-2,-2,-2)
+            else:
+                reversibleTuples.add(tuple(-elt for elt in rewriteTuple))
+                return rewriteTuple
+                
+    def tupleToCounter(rewriteTuple: tuple):
+        """Helper: converts a rewrite tuple to a Counter object."""
+        return Counter(dict(zip(chars, rewriteTuple)))
+            
+    reversibleTuples = set()
+    rewriteRules = []
+    
+    """Generate 2k = { 2, 4, 6, ... , period / 2 } ."""
+    for n in range(2, period // 2 + 1, 2):
+        tuples = map(reducingTuple, product([-n, period-n], repeat=len(chars)))
+        rewriteRules += list(map(tupleToCounter, set(tuples)))
+
+    return rewriteRules
+
+def reduce(action, rewrites, chars=['a','b','c']):
+    """Iterates 'reduceStep' until we hit a fixed point."""
+
+    # Simple type-checking
     action, chars = action.lower(), list(map(str.lower, chars))
     if set(list(action)) - set(chars):
         raise ValueError(f"Action '{action}' contains chars not in '{chars}'")
+
+    # Helper functions
+    def counterToStr(action: Counter):
+        """Helper: converts action Counter to string."""
+        return ''.join(sorted(action.elements()))
     
-    # Re-write as a Counter object:
+    def reduceStep(action: Counter):
+        for rewrite in rewrites:
+            if all(action[char] + rewrite[char] >= 0 for char in chars):
+                action = action + rewrite
+                print(f"Reducing by rule {list(rewrite.items())} to '{counterToStr(action)}'.")
+        return action
+
+    # Main function body
+    print(f"reduce('{action}')")
     action = Counter(action)
 
-    # Re-write rules
-    rewrites = [
-        Counter(a= 2, b=2,  c=2),
-        Counter(a= 4, b=4,  c=-4),
-        Counter(a= 4, b=-4, c=4),
-        Counter(a=-4, b=4,  c=4),
-        Counter(a= 6, b=-2, c=-2),
-        Counter(a=-2, b=6,  c=-2),
-        Counter(a=-2, b=-2, c=6)
-    ]
-
-    for rewrite in rewrites:
-        if all(rewrite[char] <= action[char] for char in chars):
-            res = ''.join(sorted((action - rewrite).elements()))
-            # print(f"Reducing by rule: {list(rewrite.items())} to '{res}'.")
-            return res
-    # print(f"No more reductions!\n")
-    return ''.join(sorted(action.elements()))
-
-def reduce(action, chars):
-    """
-    Iterates the 'reduceStep' action until we've hit a fixed point.
-    
-    Version 1: only works for trellises of (height=1, width=2).
-    """
     while True:
-        new_action = reduceStep(action, chars)
-        if Counter(new_action) == Counter(action):
-            return new_action
+        new_action = reduceStep(action)
+        if new_action == action:
+            print("No more reductions!\n")
+            break
         else:
             action = new_action
 
-def allReducedActions(chars=None, n=8):
+    return counterToStr(action)
+
+def allReducedActions(chars=['a','b','c'], period=8):
     """
     Version 1: only works for vanilla trellises (height=1, width=2).
     """
-    chars = ['a','b','c']
-    return list(set(reduce(action, chars) for action in allActions(chars, n)))
+    rewrites = getRewrites(chars, period)
+    return list(set(
+        reduce(action, rewrites, chars)
+        for action in allActions(chars, period)
+    ))
 
 """
 Run this section only if 'trellis.py' is run directly, not as an import.
@@ -340,10 +389,15 @@ if __name__ == "__main__":
 
     """Quick script for trellis.py to brute-force periods"""
     if not sys.flags.interactive:
-        chars = ['a','b','c']
+        trellis = Trellis(h=1, w=1)
+        chars = ['a','b']
+        rewrites = getRewrites(chars, period=8)
         actions = {
-            action: trellis.getPeriod(action) for action in
-            map(lambda elt: reduce(elt, chars), allActions(chars, n=8))
+            action: trellis.getPeriod(action) 
+            for action in map(
+                lambda elt: reduce(elt, rewrites, chars),
+                allActions(chars, n=8)
+            )
         }
         irreducibles = list(actions.keys())
         print(f"Number of irreducible group elements: {len(irreducibles)}")
