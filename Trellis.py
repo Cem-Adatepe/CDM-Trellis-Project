@@ -316,23 +316,28 @@ if __name__ == "__main__":
         print()
 
     else:
-        """Quick script for trellis.py to brute-force periods."""
-        trellis = Trellis(h=2, w=2)
+        """
+        Quick script for trellis.py to brute-force periods. Some results:
+         - 1x1: 16       irreducibles (C8  x C2)
+         - 1x2: 128      irreducibles (C8  x C8  x C2)
+         - 1x3: 2096(?)  irreducibles
+         - 1x4: 12288    irreducibles
+         - 2x2: 2048     irreducibles (C32 x C32 x C2) (?)
+
+        For the 1x3 case, we likely have extra irreducibles that are congruent.
+        One idea is to map each action to the state it induces on the trellis,
+        so we can 'mod' out by equivalent group action.
+        """
+        trellis = Trellis(h=1, w=4)
         print("Setting up trellis...")
         print(trellis), print()
-
-        print("Getting rewrite rules...")
-        rewrites = getRewrites(trellis.atomic, period=trellis.period)
 
         print("Calculating irreducible actions and their periods...")
         actions = {
             action: trellis.getPeriod(action)
-            for action in map(
-                lambda elt: reduce(elt, rewrites, trellis.atomic),
-                allActions(trellis.atomic, n=trellis.period),
-            )
+            for action in trellis.allReducedActions(strictly_weight_reducing=True)
         }
-        irreducibles = list(actions.keys())
+        irreducibles = actions.keys()
         print(f"Number of irreducible group elements: {len(irreducibles)}")
         print()
         print(f"Periods: { set(actions.values()) }")
