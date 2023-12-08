@@ -1,14 +1,21 @@
 """
+TRELLIS MODULE
 @brief  Python module for creating and manipulating Trellis objects, with
         options for printing the state to the terminal.
 @file   trellis.py
 @author Cem Adatepe, Joseph Chan
 """
 
+from GroupActions import (
+    allActions,
+    _invert,
+    getRewrites,
+    _counterToStr,
+    reduce,
+)
+
 import sys
 import copy
-from itertools import product
-from collections import Counter
 from blessed import Terminal
 import argparse
 from colorama import Style, Fore
@@ -25,8 +32,6 @@ RIGHT, RIGHT_CHAR = False, Fore.GREEN + "x"
 
 """
 HELPER FUNCTIONS 
- - charToSlot : Converts 'a' to 0, 'b' to 1, etc.
- - slotToChar : Inverse of charToSlot
  - stateToChar : Returns string representation of a state
 """
 
@@ -52,13 +57,13 @@ class Trellis:
         ]
         self.ball_position = None
         self.atomic = [self.slotToChar(i) for i in range(self.cols)]
-        self.visited_states = []
+        self.ball_path = []
         return
 
     def __str__(self):
         """String representation of row 'i' in the trellis."""
         chars = [[stateToChar(state) for state in row] for row in self.trellis]
-        for row, col in self.visited_states:
+        for row, col in self.ball_path:
             chars[row][col] = Style.BRIGHT + chars[row][col] + Style.RESET_ALL
         rows = ["   ".join(row) for row in chars]
         for i in range(len(rows)):
@@ -72,7 +77,8 @@ class Trellis:
 
     def charToSlot(self, char: str):
         """
-        Expects a string 'char' as input: char is a single (upper- or lower-case) char.
+        Expects a string 'char' as input: 'char' is a single (upper- or lower-
+        case) alphabet.
 
         It returns its corresponding slot number: mapping
         'A' == 'a' == 0
@@ -90,6 +96,10 @@ class Trellis:
         """Checks if slot (single char) is in range."""
         return char.lower() in self.atomic
 
+    def isValidElement(self, chars: str):
+        """Checks if sequence of atomic actions are all in range."""
+        return all(self.isValidAction(char) for char in chars)
+
     def goesLeft(self):
         """Returns true iff ball goes left from current ball_position"""
         row, col = self.ball_position
@@ -104,13 +114,13 @@ class Trellis:
 
     def reset(self):
         """
-        Resets to the original state, i.e. all LEFT, and clears visited_states.
+        Resets to the original state, i.e. all LEFT, and clears ball_path.
         Note: doesn't change the ball_position.
         """
         self.trellis = [
             [LEFT for j in range(self.cols - i % 2)] for i in range(self.rows)
         ]
-        self.visited_states = []
+        self.ball_path = []
 
     def flipState(self, i: int, j: int):
         """
@@ -128,10 +138,10 @@ class Trellis:
         if self.ball_position == None:
             if verbose:
                 print(self), print()
-            self.visited_states = []
+            self.ball_path = []
             return False
 
-        self.visited_states.append(self.ball_position)
+        self.ball_path.append(self.ball_position)
         row, col = self.ball_position
 
         # Last (even) layer : remove ball
@@ -188,201 +198,109 @@ class Trellis:
         for char in chars:
             self.drop_ball(char)
 
-    """COMPUTATIONAL FUNCTIONS"""
+    """
+    COMPUTATIONAL FUNCTIONS
+    These functions use the trellis to do period/orbit calculations.
 
-    def getPeriod(self, element):
+     - getOrbit     : returns the orbit of a group element (from any position)
+     - getPeriod    : finds the period of an element (by calling getOrbit on 1)
+    
+    Most of these are defined in GroupActions.py. We define them here with
+    trellis variables as function input to simplify their usage.
+
+     - allActions   : returns a list of all possible actions, up to rewrite rules
+     - getRewrites  : computes rewrite rules for the trellis
+     - reduce       : reduce an action, according to rewrite rules
+     - allReducedActions    : computes all actions, modulo SOME reduction rules
+    """
+
+    def getPeriod(self, chars: str):
         """
-        Given an element (represented as a string of atomic actions), returns
-        the period of the element by iteratively applying its action until the
-        state returns to the identity state.
+        Finds the period of an element 'chars' by finding the orbit of its
+        action on the identity trellis.
 
         This always halts: there are finitely many states, and the trellis
         action is injective (Lemma 3.2), so periodicity is guaranteed (which
         also guaranteed that atomic actions on any trellis generate a group!).
         """
-        self.reset()
-        self.ball_position = None
-        rewrites = getRewrites(chars=self.atomic, period=self.period)
-
-        count = 0
-        orbit = []
-
-        """Add balls until we go back to the identity."""
-        while True:
-            count += 1
-            orbit.append(reduce(element * count, rewrites, self.atomic))
-            self.drop_balls(element)
-            if self.isIdentity():
-                break
-
+        orbit = self.getOrbit(chars)
         if verbose:
-            print(orbit)
-        return count
+            print("Orbit:", orbit)
+        return len(orbit)
 
-    def getOrbit(self, element: str, start: str = ""):
+    def getOrbit(self, chars: str, start: str = ""):
         """
         Returns the orbit of an element, represented as a list of (reduced)
         elements. Optionally, begins at a starting element indicated by start.
 
         Version 1: only works with trellises of width=2.
+        Currently, getRewrites isn't guaranteed to halt for larger trellises...
         """
-        assert all(map(self.isValidAction, list(element))), "getOrbit: invalid element"
-        assert all(map(self.isValidAction, list(element))), "getOrbit: invalid start"
+        assert self.isValidElement(chars), f"getOrbit: invalid element '{chars}'"
+        assert self.isValidElement(start), f"getOrbit: invalid start '{start}'"
 
+        # Initialise trellis to 'start' state; get rewrite rules
         self.reset()
         self.ball_position = None
         self.drop_balls(start)
         initial_config = copy.deepcopy(self.trellis)
 
-        self.drop_balls(element)
-        orbit, count = [reduce(start + element, ["a", "b", "c"])], 1
-        while self.trellis != initial_config:
-            self.drop_balls(element)
+        rewrites = getRewrites(chars=self.atomic, period=self.period)
+
+        count = 0
+        orbit = []
+
+        # Drop balls until we return to initial config
+        while True:
+            orbit.append(reduce(start + chars * count, rewrites, self.atomic))
+            self.drop_balls(chars)
             count += 1
-            orbit.append(reduce(start + element * count, ["a", "b", "c"]))
+            if self.trellis == initial_config:
+                break
+
         return orbit
 
+    def allActions(self):
+        """Generates all trellis actions, up to 'self.period'-many of each."""
+        return allActions(chars=self.atomic, period=self.period)
 
-"""
-STRING LIBRARY
-Functions for generating strings of actions.
-"""
-
-
-def charsToN(chars, n=8):
-    """Returns the set {chars}^n of strings over {chars}."""
-    return list(map("".join, product(chars, repeat=n)))
-
-
-def upToCount(actions):
-    """
-    Since atomic actions commute, filter `actions` to remove identical elements
-    (by commuting atomic actions).
-    """
-    return list(set(map(lambda str: "".join(sorted(str)), actions)))
-
-
-def allActions(chars, n=8):
-    """
-    Generates all actions over the alphabet {chars}.
-    If n is given as the period of any atomic element in chars, we return
-      n^|{chars}| many elements in a list.
-    """
-    index_tuples = product(range(n), repeat=len(chars))
-    actions = [
-        "".join(["".join(tupl[j] * chars[j] for j in range(len(chars)))])
-        for tupl in index_tuples
-    ]
-    return actions
-
-
-def getRewrites(chars: list[str], period: int = 8):
-    """
-    Generates a list of rewrites for a given set of {char}'s and period.
-    WARNING : naively, this is EXPONENTIAL in |{char}| !
-    WARNING : as-is, doesn't work for cases as simple as {a,b,c,d} and period=8!
-
-    All rewrite rules are generated ultimately from identity elements, which (we
-    conjecture, and can computationally verify for small cases) are of the form
-    (abc)^2k. Essentially, we are trying to 'mod' out by the identity elements.
-
-    The key insight is that each identity can be turned into a rewrite rule by
-    turning each number into its inverse, e.g. when the period is 8, then
-
-        a^{-2} == a^6     and more generally    r^{-k} == r^{n-k}
-
-    Computationally, each bitstring of length |{char}| corresponds to a rewrite
-    rule ('negate' the elements as above when the bit is 1, and leave it when
-    the bit is 0). For example, the bitstring '100' corresponds to
-
-            a^{-6} b^2 c^2              (since 2 ~= -6 mod 8)
-        ~=  Counter(a=-6, b=2, c=2)     (our representation)
-
-    Also, we want our rewrites to be reducing, so we can simply filter our list.
-    We want to exclude 'reversible' rewrites that don't change weight too.
-    """
-
-    def reducingTuple(rewriteTuple: tuple):
+    def getRewrites(self, strictly_weight_reducing=True):
         """
-        Helper: 'flips' the tuple to ensure that the weight doesn't increase.
-        For a given rewrite tuple (k,l,m), (-k,-l,-m) is also the identity,
-        so we just search for 2k <= period / 2 and choose the tuple that
-        decreases weight.
+        Rewrite rules for trellis, as Counter objects.
+        If strictly_weight_reducing=False, we include some weight-preserving
+        rewrites, too. There's still no guarantee we won't loop! e.g.
 
-        If both tuples don't change weight (i.e. their sum is 0), we pick the
-        first one and discard the second. This way we EXCLUDE reversible
-        rewrites.
+            a4c6 --> b4c2d4 --> a6c2d2 --> a4c6
+
+        using rules
+
+            a4c4 -> b4d4
+            b2c2d2 -> a6
+            a2b2d2 -> c6
+
+        in a Trellis(h=1,w=3).
         """
-        weight = sum(rewriteTuple)
-        if weight < 0:
-            return rewriteTuple
-        elif weight > 0:
-            return tuple(-elt for elt in rewriteTuple)
-        else:
-            if rewriteTuple in reversibleTuples:
-                return (-2, -2, -2)
-            else:
-                reversibleTuples.add(tuple(-elt for elt in rewriteTuple))
-                return rewriteTuple
+        return getRewrites(
+            chars=self.atomic,
+            period=self.period,
+            strictly_weight_reducing=strictly_weight_reducing,
+        )
 
-    def tupleToCounter(rewriteTuple: tuple):
-        """Helper: converts a rewrite tuple to a Counter object."""
-        return Counter(dict(zip(chars, rewriteTuple)))
+    def reduce(self, action: str, strictly_weight_reducing=True):
+        """Reduces an action (a string) using trelli's rewrite rules."""
+        return reduce(
+            action=action,
+            rewrites=self.getRewrites(strictly_weight_reducing),
+            chars=self.atomic,
+        )
 
-    reversibleTuples = set()
-    rewriteRules = []
-
-    """Generate 2k = { 2, 4, 6, ... , period / 2 } ."""
-    for n in range(2, period // 2 + 1, 2):
-        tuples = map(reducingTuple, product([-n, period - n], repeat=len(chars)))
-        rewriteRules += list(map(tupleToCounter, set(tuples)))
-
-    return rewriteRules
-
-
-def reduce(action, rewrites, chars=["a", "b", "c"]):
-    """Iterates 'reduceStep' until we hit a fixed point."""
-
-    # Simple type-checking
-    action, chars = action.lower(), list(map(str.lower, chars))
-    if set(list(action)) - set(chars):
-        raise ValueError(f"Action '{action}' contains chars not in '{chars}'")
-
-    # Helper functions
-    def counterToStr(action: Counter):
-        """Helper: converts action Counter to string."""
-        return "".join(sorted(action.elements()))
-
-    def reduceStep(action: Counter):
-        for rewrite in rewrites:
-            if all(action[char] + rewrite[char] >= 0 for char in chars):
-                action = action + rewrite
-                # print(f"Reducing by rule {list(rewrite.items())} to '{counterToStr(action)}'.")
-        return action
-
-    # Main function body
-    # print(f"reduce('{action}')")
-    action = Counter(action)
-
-    while True:
-        new_action = reduceStep(action)
-        if new_action == action:
-            # print("No more reductions!\n")
-            break
-        else:
-            action = new_action
-
-    return counterToStr(action)
-
-
-def allReducedActions(chars=["a", "b", "c"], period=8):
-    """
-    Version 1: only works for vanilla trellises (height=1, width=2).
-    """
-    rewrites = getRewrites(chars, period)
-    return list(
-        set(reduce(action, rewrites, chars) for action in allActions(chars, period))
-    )
+    def allReducedActions(self, strictly_weight_reducing=True):
+        """Filters output of 'self.allActions()' using trellis' rewrite rules."""
+        reduced = [
+            self.reduce(action, strictly_weight_reducing)
+            for action in self.allActions()
+        ]
+        return list(set(reduced))
 
 
 """
