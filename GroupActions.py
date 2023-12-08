@@ -54,7 +54,7 @@ def getRewrites(chars, period: int = 8, strictly_weight_reducing=True):
 
     # Track reversible tuples we've added: don't add a rewrite AND its inverse
     already_seen_reversible_rewrites = set()
-    rewriteRules = []
+    rewrite_rules = []
 
     def reducingTuple(rewrite_tuple: tuple):
         """
@@ -69,15 +69,15 @@ def getRewrites(chars, period: int = 8, strictly_weight_reducing=True):
         """
         weight = sum(rewrite_tuple)
 
-        # Add strictly weight-reducing tuples
+        # Strictly weight-reducing: add it
         if weight < 0:
             return rewrite_tuple
 
-        # If strictly weight-increasing, add its inverse
+        # Strictly weight-increasing: add its inverse
         elif weight > 0:
             return _invert(rewrite_tuple)
 
-        # Make sure we don't add a rewrite and its inverse: infinite rewrites!
+        # Weight-preserving: (maybe) add it, but DON'T add its inverse
         elif not strictly_weight_reducing:
             if rewrite_tuple not in already_seen_reversible_rewrites:
                 already_seen_reversible_rewrites.add(_invert(rewrite_tuple))
@@ -86,27 +86,28 @@ def getRewrites(chars, period: int = 8, strictly_weight_reducing=True):
 
         return None
 
-    def tupleToCounter(rewriteTuple: tuple):
-        """Helper: converts a rewrite tuple to a Counter object."""
-        return Counter(dict(zip(chars, rewriteTuple)))
-
     # Generate 2k = { 2, 4, 6, ... , period / 2 } .
     for n in range(2, period // 2 + 1, 2):
-        all_tuples = list(product([-n, period - n], repeat=len(chars)))
-        reducing = set(reducingTuple(index_tuple) for index_tuple in all_tuples)
+        all = product([-n, period - n], repeat=len(chars))
+        reducing = set(reducingTuple(index_tuple) for index_tuple in all)
         reducing.discard(None)
-        rewriteRules += [tupleToCounter(index_tuple) for index_tuple in reducing]
+        rewrite_rules += list(reducing)
 
-    return rewriteRules
-
-
-def _counterToStr(action: Counter):
-    """Helper: converts action Counter to string."""
-    return "".join(sorted(action.elements()))
+    return rewrite_rules
 
 
-def reduce(action: str, rewrites: list[Counter], chars=["a", "b", "c"]):
-    """Iterates 'reduceStep' until we hit a fixed point."""
+def _tupleToString(action: tuple, chars):
+    """Helper: converts action tuple to string."""
+    return "".join(chars[i] * action[i] for i in range(len(chars)))
+
+
+def reduce(action: str, rewrites: list[tuple], chars=["a", "b", "c"]):
+    """
+    Iterates 'reduceStep' until we hit a fixed point.
+
+    Assumes that all tuples in 'rewrites', and action, have length len(chars).
+    When we 'port' this over to Trellis, this is always true.
+    """
 
     # Simple type-checking
     action = action.lower()
@@ -114,35 +115,28 @@ def reduce(action: str, rewrites: list[Counter], chars=["a", "b", "c"]):
     if set(list(action)) - set(chars):
         raise ValueError(f"Action '{action}' contains chars not in '{chars}'")
 
-    def reduceStep(action: Counter):
+    def reduceStep(action: tuple):
         for rewrite in rewrites:
-            if all(action[char] + rewrite[char] >= 0 for char in chars):
-                action = action + rewrite
-                # print(
-                #     f"Reducing by rule {list(rewrite.items())} to '{_counterToStr(action)}'."
-                # )
+            new_action = tuple(action[i] + rewrite[i] for i in range(len(chars)))
+            if all(new_action[i] >= 0 for i in range(len(chars))):
+                action = new_action
         return action
 
     """Main function body."""
-    action = Counter(action)
-    # print(f"reduce('{action}')")
+    counts = Counter(action)
+    action = tuple(counts[char] for char in chars)
 
     while True:
         new_action = reduceStep(action)
         if new_action == action:
-            # print("No more reductions!\n")
             break
-        action = new_action
+        else:
+            action = new_action
 
-    return _counterToStr(action)
+    return _tupleToString(action, chars)
 
 
-def allReducedActions(
-    chars: str,
-    rewrites: list[Counter],
-    period: int = 8,
-    strictly_weight_reducing: bool = True,
-):
+def allReducedActions(chars: str, rewrites: list[tuple], period: int = 8):
     """
     Returns all reduced actions by generating all actions (up to period) and
     reducing each one.
@@ -154,6 +148,5 @@ def allReducedActions(
     If we use only strict rewrite rules, we MAY end up with some identical
     elements in the result.
     """
-    # rewrites = getRewrites(chars, period, strictly_weight_reducing)
     reduced = [reduce(action, rewrites, chars) for action in allActions(chars, period)]
     return list(set(reduced))

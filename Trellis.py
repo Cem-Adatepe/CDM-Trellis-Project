@@ -6,13 +6,7 @@ TRELLIS MODULE
 @author Cem Adatepe, Joseph Chan
 """
 
-from GroupActions import (
-    allActions,
-    _invert,
-    getRewrites,
-    _counterToStr,
-    reduce,
-)
+from GroupActions import allActions, getRewrites, reduce
 
 import sys  # Checks for interactive mode
 import copy  # Deep-copy functionality
@@ -247,14 +241,12 @@ class Trellis:
         self.drop_balls(start)
         initial_config = copy.deepcopy(self.trellis)
 
-        rewrites = getRewrites(chars=self.atomic, period=self.period)
-
         count = 0
         orbit = []
 
         # Drop balls until we return to initial config
         while True:
-            orbit.append(reduce(start + chars * count, rewrites, self.atomic))
+            orbit.append(self.reduce(start + chars * count))
             self.drop_balls(chars)
             count += 1
             if self.trellis == initial_config:
@@ -298,13 +290,9 @@ class Trellis:
 
     def allReducedActions(self, strictly_weight_reducing=True):
         """Filters output of 'self.allActions()' using trellis' rewrite rules."""
-        if verbose:
-            print("Calculating reduced actions...")
         reduced = [
             self.reduce(action, strictly_weight_reducing)
-            for action in tqdm(
-                self.allActions(), desc="Computing irreducible elements "
-            )
+            for action in tqdm(self.allActions(), desc="Calculating reduced elements")
         ]
         return list(set(reduced))
 
@@ -324,33 +312,44 @@ if __name__ == "__main__":
     else:
         """
         Quick script for trellis.py to brute-force periods. Some results:
-         - 1x1: 16       irreducibles (C8  x C2)
-         - 1x2: 128      irreducibles (C8  x C8  x C2)
-         - 1x3: 2096(?)  irreducibles
-         - 1x4: 12288    irreducibles
-         - 2x2: 2048     irreducibles (C32 x C32 x C2) (?)
-         - 2x3: 78608(?) irreducibles
 
-        For the 1x3, 2x3 cases, we likely have extra irreducibles that are
-        congruent. One idea is to map each action to the state it induces on the
-        trellis, so we can 'mod' out by equivalent group action.
+        Trellis    Irreducibles   Group
+        -----------------------------------------------
+          1x1           16        (C8  x C2)
+          2x1           64
+          3x1          256
+        -----------------------------------------------
+          1x2          128        (C8  x C8  x C2)
+          2x2         2048        (C32 x C32 x C2) (?)
+        -----------------------------------------------
+          1x3         2096  (?)
+          2x3        78608  (?)
+        -----------------------------------------------
+          1x4        12288
+        -----------------------------------------------
+          1x5       111488  (?)
+        -----------------------------------------------
+
+        For trellises of odd width, we likely have extra irreducibles that are
+        congruent (since we're likely overcounting, we mark it with a '?'). One
+        idea is to map each action to the state it induces on the trellis, so
+        we can 'mod' out by equivalent group action.
         """
-        trellis = Trellis(h=2, w=3)
+        trellis = Trellis(h=1, w=2)
         print("Setting up trellis...")
         print(trellis), print()
 
-        actions = {
-            action: trellis.getPeriod(action)
-            for action in tqdm(
-                trellis.allReducedActions(strictly_weight_reducing=True),
-                desc="...and getting their periods   ",
-            )
-        }
-        irreducibles = actions.keys()
+        irreducibles = trellis.allReducedActions(strictly_weight_reducing=False)
         print(f"Number of irreducible group elements: {len(irreducibles)}")
         print()
-        print(f"Periods: { set(actions.values()) }")
-        print()
+
+        if True:
+            actions = {
+                action: trellis.getPeriod(action)
+                for action in tqdm(irreducibles, desc="...and getting their periods")
+            }
+            print(f"Periods: {set(actions.values())}")
+            print()
 
         # for p in range(1, 8+1):
         #     print(f"Period {p}:")
