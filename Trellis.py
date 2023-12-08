@@ -14,11 +14,13 @@ from GroupActions import (
     reduce,
 )
 
-import sys
-import copy
+import sys  # Checks for interactive mode
+import copy  # Deep-copy functionality
+from tqdm import tqdm  # Cosmetic progress bar
+from colorama import Style, Fore
+
 from blessed import Terminal
 import argparse
-from colorama import Style, Fore
 
 """
 GLOBAL VARIABLES
@@ -335,7 +337,7 @@ if __name__ == "__main__":
         print("Calculating irreducible actions and their periods...")
         actions = {
             action: trellis.getPeriod(action)
-            for action in trellis.allReducedActions(strictly_weight_reducing=True)
+            for action in tqdm(trellis.allReducedActions(strictly_weight_reducing=True))
         }
         irreducibles = actions.keys()
         print(f"Number of irreducible group elements: {len(irreducibles)}")
