@@ -313,29 +313,30 @@ if __name__ == "__main__":
         """
         Quick script for trellis.py to brute-force periods. Some results:
 
-        Trellis    Irreducibles   Group
-        -----------------------------------------------
-          1x1           16        (C8  x C2)
+        ---------------------------------------------------------------
+        Trellis    Irreducibles   Group                Generators of Cn
+        ---------------------------------------------------------------
+          1x1           16        (C8  x C2)           <a,ab> (?)
           2x1           64
           3x1          256
-        -----------------------------------------------
-          1x2          128        (C8  x C8  x C2)
-          2x2         2048        (C32 x C32 x C2) (?)
-        -----------------------------------------------
+        ---------------------------------------------------------------
+          1x2          128        (C8  x C8  x C2)     <a,c,abc>
+          2x2         2048        (C32 x C32 x C2)     <a,c,abc>
+        ---------------------------------------------------------------
           1x3         2096  (?)
           2x3        78608  (?)
-        -----------------------------------------------
+        ---------------------------------------------------------------
           1x4        12288
-        -----------------------------------------------
+        ---------------------------------------------------------------
           1x5       111488  (?)
-        -----------------------------------------------
+        ---------------------------------------------------------------
 
         For trellises of odd width, we likely have extra irreducibles that are
         congruent (since we're likely overcounting, we mark it with a '?'). One
         idea is to map each action to the state it induces on the trellis, so
         we can 'mod' out by equivalent group action.
         """
-        trellis = Trellis(h=1, w=2)
+        trellis = Trellis(h=2, w=2)
         print("Setting up trellis...")
         print(trellis), print()
 
