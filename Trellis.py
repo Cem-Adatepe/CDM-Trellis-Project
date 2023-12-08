@@ -298,9 +298,13 @@ class Trellis:
 
     def allReducedActions(self, strictly_weight_reducing=True):
         """Filters output of 'self.allActions()' using trellis' rewrite rules."""
+        if verbose:
+            print("Calculating reduced actions...")
         reduced = [
             self.reduce(action, strictly_weight_reducing)
-            for action in self.allActions()
+            for action in tqdm(
+                self.allActions(), desc="Computing irreducible elements "
+            )
         ]
         return list(set(reduced))
 
@@ -325,19 +329,22 @@ if __name__ == "__main__":
          - 1x3: 2096(?)  irreducibles
          - 1x4: 12288    irreducibles
          - 2x2: 2048     irreducibles (C32 x C32 x C2) (?)
+         - 2x3: 78608(?) irreducibles
 
-        For the 1x3 case, we likely have extra irreducibles that are congruent.
-        One idea is to map each action to the state it induces on the trellis,
-        so we can 'mod' out by equivalent group action.
+        For the 1x3, 2x3 cases, we likely have extra irreducibles that are
+        congruent. One idea is to map each action to the state it induces on the
+        trellis, so we can 'mod' out by equivalent group action.
         """
-        trellis = Trellis(h=1, w=4)
+        trellis = Trellis(h=2, w=3)
         print("Setting up trellis...")
         print(trellis), print()
 
-        print("Calculating irreducible actions and their periods...")
         actions = {
             action: trellis.getPeriod(action)
-            for action in tqdm(trellis.allReducedActions(strictly_weight_reducing=True))
+            for action in tqdm(
+                trellis.allReducedActions(strictly_weight_reducing=True),
+                desc="...and getting their periods   ",
+            )
         }
         irreducibles = actions.keys()
         print(f"Number of irreducible group elements: {len(irreducibles)}")
