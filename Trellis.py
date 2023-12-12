@@ -6,12 +6,12 @@ TRELLIS MODULE
 @author Cem Adatepe, Joseph Chan
 """
 
-from GroupActions import allActions, getRewrites, reduce
+import GroupActions  # allActions, getRewrites, reduce
 
 import sys  # Checks for interactive mode
 import copy  # Deep-copy functionality
 from tqdm import tqdm  # Cosmetic progress bar
-from colorama import Style, Fore
+from colorama import Style, Fore  # Pretty-printing with color
 
 from blessed import Terminal
 import argparse
@@ -29,11 +29,24 @@ RIGHT, RIGHT_CHAR = False, Fore.GREEN + "x"
 """
 HELPER FUNCTIONS 
  - stateToChar : Returns string representation of a state
+ - subset : highlight subset of a set/list
 """
 
 
 def stateToChar(isLeft):
     return LEFT_CHAR if isLeft else RIGHT_CHAR
+
+
+def print_subset(universe: list[str], subset: list[str]):
+    """Prints the full set (universe) and highlights the subset."""
+
+    for s in universe:
+        print(
+            Style.BRIGHT + Fore.GREEN + s + Style.RESET_ALL if s in subset else s,
+            end=" ",
+        )
+    print()
+    return
 
 
 class Trellis:
@@ -62,9 +75,9 @@ class Trellis:
         for row, col in self.ball_path:
             chars[row][col] = Style.BRIGHT + chars[row][col] + Style.RESET_ALL
         rows = ["   ".join(row) for row in chars]
-        for i in range(len(rows)):
+        for i, row in enumerate(rows):
             if i % 2 == 1:
-                rows[i] = "  " + rows[i] + "  "
+                rows[i] = "  " + row + "  "
         return "\n".join(rows) + Style.RESET_ALL
 
     def __repr__(self):
@@ -210,7 +223,7 @@ class Trellis:
      - allReducedActions    : computes all actions, modulo SOME reduction rules
     """
 
-    def getPeriod(self, chars: str):
+    def getPeriod(self, chars: str, strictly_weight_reducing=True):
         """
         Finds the period of an element 'chars' by finding the orbit of its
         action on the identity trellis.
@@ -219,12 +232,12 @@ class Trellis:
         action is injective (Lemma 3.2), so periodicity is guaranteed (which
         also guaranteed that atomic actions on any trellis generate a group!).
         """
-        orbit = self.getOrbit(chars)
+        orbit = self.getOrbit(chars, strictly_weight_reducing)
         if verbose:
             print("Orbit:", orbit)
         return len(orbit)
 
-    def getOrbit(self, chars: str, start: str = ""):
+    def getOrbit(self, chars: str, start: str = "", strictly_weight_reducing=True):
         """
         Returns the orbit of an element, represented as a list of (reduced)
         elements. Optionally, begins at a starting element indicated by start.
@@ -246,7 +259,7 @@ class Trellis:
 
         # Drop balls until we return to initial config
         while True:
-            orbit.append(self.reduce(start + chars * count))
+            orbit.append(self.reduce(start + chars * count, strictly_weight_reducing))
             self.drop_balls(chars)
             count += 1
             if self.trellis == initial_config:
@@ -256,7 +269,7 @@ class Trellis:
 
     def allActions(self):
         """Generates all trellis actions, up to 'self.period'-many of each."""
-        return allActions(chars=self.atomic, period=self.period)
+        return GroupActions.allActions(chars=self.atomic, period=self.period)
 
     def getRewrites(self, strictly_weight_reducing=True):
         """
@@ -274,7 +287,7 @@ class Trellis:
 
         in a Trellis(h=1,w=3).
         """
-        return getRewrites(
+        return GroupActions.getRewrites(
             chars=self.atomic,
             period=self.period,
             strictly_weight_reducing=strictly_weight_reducing,
@@ -282,7 +295,7 @@ class Trellis:
 
     def reduce(self, action: str, strictly_weight_reducing=True):
         """Reduces an action (a string) using trelli's rewrite rules."""
-        return reduce(
+        return GroupActions.reduce(
             action=action,
             rewrites=self.getRewrites(strictly_weight_reducing),
             chars=self.atomic,
@@ -316,7 +329,7 @@ if __name__ == "__main__":
         ---------------------------------------------------------------
         Trellis    Irreducibles   Group                Generators of Cn
         ---------------------------------------------------------------
-          1x1           16        (C8  x C2)           <a,ab> (?)
+          1x1           16        (C8  x C2)           <a,ab>
           2x1           64
           3x1          256
         ---------------------------------------------------------------
@@ -336,23 +349,28 @@ if __name__ == "__main__":
         idea is to map each action to the state it induces on the trellis, so
         we can 'mod' out by equivalent group action.
         """
-        trellis = Trellis(h=2, w=2)
+        trellis = Trellis(h=1, w=2)
         print("Setting up trellis...")
         print(trellis), print()
-
         irreducibles = trellis.allReducedActions(strictly_weight_reducing=False)
-        print(f"Number of irreducible group elements: {len(irreducibles)}")
-        print()
 
         if True:
             actions = {
                 action: trellis.getPeriod(action)
                 for action in tqdm(irreducibles, desc="...and getting their periods")
             }
-            print(f"Periods: {set(actions.values())}")
-            print()
 
-        # for p in range(1, 8+1):
-        #     print(f"Period {p}:")
-        #     print([action for action, period in actions.items() if period == p])
-        #     print()
+            print()
+            for p in range(1, trellis.period + 1):
+                period_p_actions = [
+                    action for action, period in actions.items() if period == p
+                ]
+                if period_p_actions:
+                    print(Style.BRIGHT + f"Period {p}:" + Style.RESET_ALL)
+                    print(sorted(period_p_actions, key=len))
+                    print()
+
+            print(f"Periods: {set(actions.values())}")
+
+        print(f"Number of irreducible group elements: {len(irreducibles)}")
+        print()
