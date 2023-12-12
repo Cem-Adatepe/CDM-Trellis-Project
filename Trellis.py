@@ -232,7 +232,7 @@ class Trellis:
         action is injective (Lemma 3.2), so periodicity is guaranteed (which
         also guaranteed that atomic actions on any trellis generate a group!).
         """
-        orbit = self.getOrbit(chars, strictly_weight_reducing)
+        orbit = self.getOrbit(chars, strictly_weight_reducing=strictly_weight_reducing)
         if verbose:
             print("Orbit:", orbit)
         return len(orbit)
