@@ -9,7 +9,6 @@ TRELLIS MODULE
 import GroupActions  # allActions, getRewrites, reduce
 
 import sys  # Checks for interactive mode
-import copy  # Deep-copy functionality
 from tqdm import tqdm  # Cosmetic progress bar
 from colorama import Style, Fore  # Pretty-printing with color
 from itertools import chain  # Encoding trellis state
@@ -28,12 +27,12 @@ RIGHT_CHAR = Fore.GREEN + "o"
 
 """
 HELPER FUNCTIONS 
- - stateToChar : Returns string representation of a state
- - subset : highlight subset of a set/list
+ - state_to_char : Returns string representation of a state
+ - print_subset : Highlight subset of a set/list
 """
 
 
-def stateToChar(isLeft):
+def state_to_char(isLeft):
     return LEFT_CHAR if isLeft else RIGHT_CHAR
 
 
@@ -71,7 +70,7 @@ class Trellis:
 
     def __str__(self):
         """String representation of row 'i' in the trellis."""
-        chars = [[stateToChar(state) for state in row] for row in self.trellis]
+        chars = [[state_to_char(state) for state in row] for row in self.trellis]
         for row, col in self.ball_path:
             chars[row][col] = Style.BRIGHT + chars[row][col] + Style.RESET_ALL
         rows = ["   ".join(row) for row in chars]
@@ -329,7 +328,7 @@ class Trellis:
         group = [
             elements[0]
             for state, elements in self.find_equivalent_actions(
-                elements=self.all_reduced_actions()
+                elements=self.all_actions()
             ).items()
         ]
         return group
@@ -384,8 +383,8 @@ if __name__ == "__main__":
         Trellis    Irreducibles   Group                Generators of Cn
         ---------------------------------------------------------------
           1x1             16      (C8  x C2)           <a,ab>
-          2x1             64
-          3x1            256
+          2x1             32
+          3x1             64
         ---------------------------------------------------------------
           1x2            128      (C8  x C8  x C2)     <a,c,abc>
           2x2           2048      (C32 x C32 x C2)     <a,c,abc>
@@ -397,18 +396,15 @@ if __name__ == "__main__":
         ---------------------------------------------------------------
           1x5          65536
         ---------------------------------------------------------------
-
-        For trellises of odd width, we likely have extra irreducibles that are
-        congruent (since we're likely overcounting, we mark it with a '?'). One
-        idea is to map each action to the state it induces on the trellis, so
-        we can 'mod' out by equivalent group action.
+          1x6         524288
+        ---------------------------------------------------------------
         """
-        trellis = Trellis(h=1, w=4)
+        trellis = Trellis(h=2, w=1)
         print("Setting up trellis...")
         print(trellis), print()
-        irreducibles = trellis.all_reduced_actions(strictly_weight_reducing=False)
+        irreducibles = trellis.all_group_elements()
 
-        if True:
+        if False:
             actions = {
                 action: trellis.get_period(action)
                 for action in tqdm(irreducibles, desc="...and getting their periods")
