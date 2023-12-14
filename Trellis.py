@@ -12,7 +12,7 @@ import sys  # Checks for interactive mode
 import copy  # Deep-copy functionality
 from tqdm import tqdm  # Cosmetic progress bar
 from colorama import Style, Fore  # Pretty-printing with color
-from itertools import chain
+from itertools import chain  # Encoding trellis state
 
 """
 GLOBAL VARIABLES
@@ -20,9 +20,11 @@ GLOBAL VARIABLES
 verbose = False
 
 """Trellis state & string representation: use bools"""
-LEFT, LEFT_CHAR = True, Fore.RED + "o"
-RIGHT, RIGHT_CHAR = False, Fore.GREEN + "o"
+LEFT = True
+RIGHT = False
 
+LEFT_CHAR = Fore.RED + "o"
+RIGHT_CHAR = Fore.GREEN + "o"
 
 """
 HELPER FUNCTIONS 
@@ -40,10 +42,8 @@ def print_subset(universe: list[str], subset: list[str]):
 
     for s in universe:
         print(
-            f"{Style.BRIGHT + Fore.GREEN}'{s}'{Style.RESET_ALL}"
-            if s in subset
-            else f"'{s}'",
-            end=" ",
+            f"{Style.BRIGHT + Fore.GREEN}'{s}'" if s in subset else f"'{s}'",
+            end=f" {Style.RESET_ALL}",
         )
     print()
     return
@@ -65,7 +65,7 @@ class Trellis:
             [LEFT for j in range(self.cols - i % 2)] for i in range(self.rows)
         ]
         self.ball_position = None
-        self.atomic = [self.slotToChar(i) for i in range(self.cols)]
+        self.atomic = [self.int_to_char(i) for i in range(self.cols)]
         self.ball_path = []
         return
 
@@ -84,7 +84,7 @@ class Trellis:
         """A representation of the configuration (C x S)."""
         return f"<Trellis C={self.trellis}, S={self.ball_position}>"
 
-    def charToSlot(self, char: str):
+    def char_to_int(self, char: str):
         """
         Expects a string 'char' as input: 'char' is a single (upper- or lower-
         case) alphabet.
@@ -93,28 +93,28 @@ class Trellis:
         'A' == 'a' == 0
         'B' == 'b' == 1, etc.
         """
-        assert self.isValidAction(char), f"Action '{char}' is not in range"
+        assert self.is_valid_action(char), f"Action '{char}' is not in range"
         return ord(char.lower()) - ord("a")
 
-    def slotToChar(self, int: int):
+    def int_to_char(self, int: int):
         if int not in range(ord("z") - ord("a") + 1):
-            raise ValueError(f"slotToChar: int {int} not between 0 and 25")
+            raise ValueError(f"int_to_char: int {int} not between 0 and 25")
         return chr(int + ord("a"))
 
-    def isValidAction(self, char: str):
+    def is_valid_action(self, char: str):
         """Checks if slot (single char) is in range."""
         return char.lower() in self.atomic
 
-    def isValidElement(self, chars: str):
+    def is_valid_element(self, chars: str):
         """Checks if sequence of atomic actions are all in range."""
-        return all(self.isValidAction(char) for char in chars)
+        return all(self.is_valid_action(char) for char in chars)
 
-    def goesLeft(self):
+    def goes_left(self):
         """Returns true iff ball goes left from current ball_position"""
         row, col = self.ball_position
         return self.trellis[row][col]
 
-    def isIdentity(self):
+    def is_identity(self):
         """
         Returns true if trellis returns to initial state, i.e. all left.
         Note: assumes here that LEFT == True.
@@ -131,7 +131,7 @@ class Trellis:
         ]
         self.ball_path = []
 
-    def flipState(self, i: int, j: int):
+    def flip_state(self, i: int, j: int):
         """
         Flips the state at (i,j).
         Note: assumes here that states are represented by bool's.
@@ -159,7 +159,7 @@ class Trellis:
 
         # Odd layer
         elif row % 2 == 1:
-            if self.goesLeft():
+            if self.goes_left():
                 self.ball_position = (row + 1, col)
             else:
                 self.ball_position = (row + 1, col + 1)
@@ -168,24 +168,24 @@ class Trellis:
         else:
             # Left-most slot
             if col == 0:
-                if self.goesLeft():
+                if self.goes_left():
                     self.ball_position = (row + 2, col)
                 else:
                     self.ball_position = (row + 1, col)
             # Right-most slot
             elif col == self.cols - 1:
-                if self.goesLeft():
+                if self.goes_left():
                     self.ball_position = (row + 1, col - 1)
                 else:
                     self.ball_position = (row + 2, col)
             # Non-edge slot
             else:
-                if self.goesLeft():
+                if self.goes_left():
                     self.ball_position = (row + 1, col - 1)
                 else:
                     self.ball_position = (row + 1, col)
 
-        self.flipState(row, col)
+        self.flip_state(row, col)
         return True
 
     def drop_ball(self, char: str):
@@ -194,8 +194,8 @@ class Trellis:
         Slot is a valid single-letter action (in self.atomic).
         """
         assert self.ball_position == None, "drop_ball: There's already a ball"
-        assert self.isValidAction(char), f"drop_ball: Invalid action '{char}'"
-        slot = self.charToSlot(char)
+        assert self.is_valid_action(char), f"drop_ball: Invalid action '{char}'"
+        slot = self.char_to_int(char)
 
         # Add the ball, and iterate update
         self.ball_position = (0, slot)
@@ -211,8 +211,8 @@ class Trellis:
     COMPUTATIONAL FUNCTIONS
     These functions use the trellis to do period/orbit calculations.
 
-     - getOrbit     : returns the orbit of a group element (from any position)
-     - getPeriod    : finds the period of an element (by calling getOrbit on 1)
+     - get_orbit     : returns the orbit of a group element (from any position)
+     - get_period    : finds the period of an element (by calling get_orbit on 1)
     
     Most of these are defined in GroupActions.py. We define them here with
     trellis variables as function input to simplify their usage.
@@ -223,7 +223,7 @@ class Trellis:
      - allReducedActions    : computes all actions, modulo SOME reduction rules
     """
 
-    def getPeriod(self, chars: str, strictly_weight_reducing=True):
+    def get_period(self, chars: str, strictly_weight_reducing=True):
         """
         Finds the period of an element 'chars' by finding the orbit of its
         action on the identity trellis.
@@ -232,12 +232,12 @@ class Trellis:
         action is injective (Lemma 3.2), so periodicity is guaranteed (which
         also guaranteed that atomic actions on any trellis generate a group!).
         """
-        orbit = self.getOrbit(chars, strictly_weight_reducing=strictly_weight_reducing)
+        orbit = self.get_orbit(chars, strictly_weight_reducing=strictly_weight_reducing)
         if verbose:
             print("Orbit:", orbit), print()
         return len(orbit)
 
-    def getOrbit(self, chars: str, start: str = "", strictly_weight_reducing=True):
+    def get_orbit(self, chars: str, start: str = "", strictly_weight_reducing=True):
         """
         Returns the orbit of an element, represented as a list of (reduced)
         elements. Optionally, begins at a starting element indicated by start.
@@ -245,14 +245,14 @@ class Trellis:
         Version 1: only works with trellises of width=2.
         Currently, getRewrites isn't guaranteed to halt for larger trellises...
         """
-        assert self.isValidElement(chars), f"getOrbit: invalid element '{chars}'"
-        assert self.isValidElement(start), f"getOrbit: invalid start '{start}'"
+        assert self.is_valid_element(chars), f"get_orbit: invalid element '{chars}'"
+        assert self.is_valid_element(start), f"get_orbit: invalid start '{start}'"
 
         # Initialise trellis to 'start' state; get rewrite rules
         self.reset()
         self.ball_position = None
         self.drop_balls(start)
-        initial_config = copy.deepcopy(self.trellis)
+        initial_state = self.encoded_trellis()
 
         count = 0
         orbit = []
@@ -262,16 +262,16 @@ class Trellis:
             orbit.append(self.reduce(start + chars * count, strictly_weight_reducing))
             self.drop_balls(chars)
             count += 1
-            if self.trellis == initial_config:
+            if self.encoded_trellis() == initial_state:
                 break
 
         return orbit
 
-    def allActions(self):
+    def all_actions(self):
         """Generates all trellis actions, up to 'self.period'-many of each."""
         return GroupActions.allActions(chars=self.atomic, period=self.period)
 
-    def getRewrites(self, strictly_weight_reducing=True):
+    def get_rewrites(self, strictly_weight_reducing=True):
         """
         Rewrite rules for trellis, as Counter objects.
         If strictly_weight_reducing=False, we include some weight-preserving
@@ -297,39 +297,59 @@ class Trellis:
         """Reduces an action (a string) using trelli's rewrite rules."""
         return GroupActions.reduce(
             action=action,
-            rewrites=self.getRewrites(strictly_weight_reducing),
+            rewrites=self.get_rewrites(strictly_weight_reducing),
             chars=self.atomic,
         )
 
-    def allReducedActions(self, strictly_weight_reducing=True):
+    def all_reduced_actions(self, strictly_weight_reducing=True):
         """Filters output of 'self.allActions()' using trellis' rewrite rules."""
         reduced = [
             self.reduce(action, strictly_weight_reducing)
-            for action in tqdm(self.allActions(), desc="Calculating reduced elements")
+            for action in tqdm(self.all_actions(), desc="Calculating reduced elements")
         ]
         return list(set(reduced))
-    def encode_trellis_states(self):
-        flattened = list(chain.from_iterable(self.trellis))
-        encoded = sum(map(lambda encoded: encoded[1] << encoded[0], enumerate(flattened)))
-        #print(bin(encoded))
-        return encoded
+
+    def encoded_trellis(self):
+        """
+        Returns 'self.trellis' encoded as an int. We convert our trellis into a
+        (flattened) bool array and then into a bitstring, and return the integer
+        that the bitstring represents.
+        """
+        flattened = chain.from_iterable(self.trellis)
+        return sum(map(lambda x: x[1] << x[0], enumerate(flattened)))
+
     def decode_trellis_states(self):
         pass
 
-    def graph_search(self, elements = None):
+    def find_equivalent_actions(self, elements=None):
+        """
+        Finds equivalent actions from 'elements' by comparing their action on
+        the identity state (this works because trellis actions are free), i.e.
+        if they have the same effect on the identity state, they have the same
+        effect on all trellis states.
+
+        This induces an equivalence relation on 'items' : they are equivalent if
+        they take the identity state to the same result state.
+
+        From each 'item' in 'elements, we compute a dictionary, 'visited' with
+            keys   : encoded trellis state of 'item' on the identity state
+            values : a list of equivalent 'items'
+        """
         visited = {}
 
-        elements  = self.allReducedActions() if elements == None else elements
+        if elements is None:
+            elements = self.all_reduced_actions()
+
         for item in elements:
             self.reset()
             self.drop_balls(item)
-            encoded = self.encode_trellis_states() 
-            if  encoded not in visited:
+            encoded = self.encoded_trellis()
+            if encoded not in visited:
                 visited[encoded] = [item]
             else:
                 visited[encoded] += [item]
-        return visited
 
+        return visited
 
 
 """
@@ -373,11 +393,11 @@ if __name__ == "__main__":
         trellis = Trellis(h=1, w=4)
         print("Setting up trellis...")
         print(trellis), print()
-        irreducibles = trellis.allReducedActions(strictly_weight_reducing=False)
+        irreducibles = trellis.all_reduced_actions(strictly_weight_reducing=False)
 
         if True:
             actions = {
-                action: trellis.getPeriod(action)
+                action: trellis.get_period(action)
                 for action in tqdm(irreducibles, desc="...and getting their periods")
             }
 
