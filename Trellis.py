@@ -3,7 +3,7 @@ TRELLIS MODULE
 @brief  Python module for creating and manipulating Trellis objects, with
         options for printing the state to the terminal.
 @file   trellis.py
-@author Cem Adatepe, Joseph Chan
+@author Cem Adatepe, Joseph Chan    
 """
 
 import GroupActions  # allActions, getRewrites, reduce
@@ -12,9 +12,7 @@ import sys  # Checks for interactive mode
 import copy  # Deep-copy functionality
 from tqdm import tqdm  # Cosmetic progress bar
 from colorama import Style, Fore  # Pretty-printing with color
-
-from blessed import Terminal
-import argparse
+from itertools import chain
 
 """
 GLOBAL VARIABLES
@@ -23,7 +21,7 @@ verbose = False
 
 """Trellis state & string representation: use bools"""
 LEFT, LEFT_CHAR = True, Fore.RED + "o"
-RIGHT, RIGHT_CHAR = False, Fore.GREEN + "x"
+RIGHT, RIGHT_CHAR = False, Fore.GREEN + "o"
 
 
 """
@@ -310,6 +308,28 @@ class Trellis:
             for action in tqdm(self.allActions(), desc="Calculating reduced elements")
         ]
         return list(set(reduced))
+    def encode_trellis_states(self):
+        flattened = list(chain.from_iterable(self.trellis))
+        encoded = sum(map(lambda encoded: encoded[1] << encoded[0], enumerate(flattened)))
+        #print(bin(encoded))
+        return encoded
+    def decode_trellis_states(self):
+        pass
+
+    def graph_search(self, elements = None):
+        visited = {}
+
+        elements  = self.allReducedActions() if elements == None else elements
+        for item in elements:
+            self.reset()
+            self.drop_balls(item)
+            encoded = self.encode_trellis_states() 
+            if  encoded not in visited:
+                visited[encoded] = [item]
+            else:
+                visited[encoded] += [item]
+        return visited
+
 
 
 """
