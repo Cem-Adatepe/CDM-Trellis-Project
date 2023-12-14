@@ -321,6 +321,19 @@ class Trellis:
     def decode_trellis_states(self):
         pass
 
+    def all_group_elements(self):
+        """
+        Wrapper around 'find_equivalent_actions' which returns the trellis group
+        as a list of elements.
+        """
+        group = [
+            elements[0]
+            for state, elements in self.find_equivalent_actions(
+                elements=self.all_reduced_actions()
+            ).items()
+        ]
+        return group
+
     def find_equivalent_actions(self, elements=None):
         """
         Finds equivalent actions from 'elements' by comparing their action on
@@ -340,7 +353,7 @@ class Trellis:
         if elements is None:
             elements = self.all_reduced_actions()
 
-        for item in elements:
+        for item in tqdm(elements, desc="Computing equivalent actions"):
             self.reset()
             self.drop_balls(item)
             encoded = self.encoded_trellis()
