@@ -42,7 +42,9 @@ def print_subset(universe: list[str], subset: list[str]):
 
     for s in universe:
         print(
-            Style.BRIGHT + Fore.GREEN + s + Style.RESET_ALL if s in subset else s,
+            f"{Style.BRIGHT + Fore.GREEN}'{s}'{Style.RESET_ALL}"
+            if s in subset
+            else f"'{s}'",
             end=" ",
         )
     print()
@@ -234,7 +236,7 @@ class Trellis:
         """
         orbit = self.getOrbit(chars, strictly_weight_reducing=strictly_weight_reducing)
         if verbose:
-            print("Orbit:", orbit)
+            print("Orbit:", orbit), print()
         return len(orbit)
 
     def getOrbit(self, chars: str, start: str = "", strictly_weight_reducing=True):
@@ -319,8 +321,7 @@ if __name__ == "__main__":
         print(f"Set bool 'verbose' to toggle verbose mode.\n")
         print("trellis =")
         trellis = Trellis()
-        print(trellis)
-        print()
+        print(trellis), print()
 
     else:
         """
@@ -329,19 +330,19 @@ if __name__ == "__main__":
         ---------------------------------------------------------------
         Trellis    Irreducibles   Group                Generators of Cn
         ---------------------------------------------------------------
-          1x1           16        (C8  x C2)           <a,ab>
-          2x1           64
-          3x1          256
+          1x1             16      (C8  x C2)           <a,ab>
+          2x1             64
+          3x1            256
         ---------------------------------------------------------------
-          1x2          128        (C8  x C8  x C2)     <a,c,abc>
-          2x2         2048        (C32 x C32 x C2)     <a,c,abc>
+          1x2            128      (C8  x C8  x C2)     <a,c,abc>
+          2x2           2048      (C32 x C32 x C2)     <a,c,abc>
         ---------------------------------------------------------------
-          1x3         2096  (?)
-          2x3        78608  (?)
+          1x3           1024
+          2x3          16384
         ---------------------------------------------------------------
-          1x4        12288
+          1x4           8192
         ---------------------------------------------------------------
-          1x5       111488  (?)
+          1x5          65536
         ---------------------------------------------------------------
 
         For trellises of odd width, we likely have extra irreducibles that are
@@ -349,7 +350,7 @@ if __name__ == "__main__":
         idea is to map each action to the state it induces on the trellis, so
         we can 'mod' out by equivalent group action.
         """
-        trellis = Trellis(h=1, w=2)
+        trellis = Trellis(h=1, w=4)
         print("Setting up trellis...")
         print(trellis), print()
         irreducibles = trellis.allReducedActions(strictly_weight_reducing=False)
