@@ -22,8 +22,8 @@ verbose = False
 LEFT = True
 RIGHT = False
 
-LEFT_CHAR = Fore.RED + "o"
-RIGHT_CHAR = Fore.GREEN + "o"
+LEFT_CHAR = Fore.RED + "●"
+RIGHT_CHAR = Fore.GREEN + "●"
 
 """
 HELPER FUNCTIONS 
@@ -73,11 +73,11 @@ class Trellis:
         chars = [[state_to_char(state) for state in row] for row in self.trellis]
         for row, col in self.ball_path:
             chars[row][col] = Style.BRIGHT + chars[row][col] + Style.RESET_ALL
-        rows = ["   ".join(row) for row in chars]
+        rows = ["       ".join(row) for row in chars]
         for i, row in enumerate(rows):
             if i % 2 == 1:
-                rows[i] = "  " + row + "  "
-        return "\n".join(rows) + Style.RESET_ALL
+                rows[i] = "    " + row + "    "
+        return "\n\n".join(rows) + Style.RESET_ALL
 
     def __repr__(self):
         """A representation of the configuration (C x S)."""
@@ -385,12 +385,14 @@ if __name__ == "__main__":
           1x1             16      (C8  x C2)           <a,ab>
           2x1             32
           3x1             64
+          4x1            128       patterns are 2x
         ---------------------------------------------------------------
           1x2            128      (C8  x C8  x C2)     <a,c,abc>
           2x2           2048      (C32 x C32 x C2)     <a,c,abc>
+          3x2          32768 wtf?  patterns are x16
         ---------------------------------------------------------------
-          1x3           1024
-          2x3          16384
+          1x3           1024         
+          2x3          16384       patterns are x16  
         ---------------------------------------------------------------
           1x4           8192
         ---------------------------------------------------------------
@@ -398,6 +400,9 @@ if __name__ == "__main__":
         ---------------------------------------------------------------
           1x6         524288
         ---------------------------------------------------------------
+        recursive rules:    
+        a x b - > size
+        (a x b+1) - > size * 8  
         """
         trellis = Trellis(h=2, w=1)
         print("Setting up trellis...")
